@@ -1,0 +1,39 @@
+name: easypay-local
+
+services:
+  mysql:
+    container_name: easypay-mysql
+    image: mysql:8.0.27
+    restart: unless-stopped
+    ports:
+      - '3310:3306'
+    volumes:
+      - ./.volumes/mysql:/var/lib/mysql:rw
+    command: [ '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci' ]
+    environment:
+      MYSQL_DATABASE: 'easypay'
+      MYSQL_USER: 'easypay_user'
+      MYSQL_PASSWORD: 'easypay_password'
+      MYSQL_ROOT_PASSWORD: 'root_password'
+      MYSQL_ROOT_HOST: '%'
+      TZ: 'Asia/Seoul'
+    platform: linux/amd64
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-cluster:
+    container_name: easypay-redis-cluster
+    image: bitnami/redis-cluster:7.2.4
+    environment:
+      - 'ALLOW_EMPTY_PASSWORD=yes'
+      - 'REDIS_CLUSTER_REPLICAS=0'
+      - 'REDIS_NODES=127.0.0.1 127.0.0.1 127.0.0.1'
+      - 'REDIS_CLUSTER_CREATOR=yes'
+      - 'REDIS_CLUSTER_DYNAMIC_IPS=no'
+      - 'REDIS_CLUSTER_ANNOUNCE_IP=127.0.0.1'
+      - 'REDIS_CLUSTER_ANNOUNCE_PORT=7001'
+    ports:
+      - '7001:6379'

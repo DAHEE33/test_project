@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyPay API 테스트</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { background: #f8f9fa; padding: 10px; border-radius: 3px; margin: 10px 0; white-space: pre-wrap; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 3px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>EasyPay API 테스트</h1>
+        
+        <!-- 인증 섹션 -->
+        <div class="section">
+            <h2>🔐 인증</h2>
+            <input type="text" id="phoneNumber" placeholder="휴대폰 번호" value="010-1234-5678">
+            <input type="password" id="password" placeholder="비밀번호" value="password123">
+            <br>
+            <button onclick="register()">회원가입</button>
+            <button onclick="login()">로그인</button>
+            <button onclick="refreshToken()">토큰 갱신</button>
+            <div id="authResult" class="result"></div>
+        </div>
+
+        <!-- 계좌 섹션 -->
+        <div class="section">
+            <h2>💰 계좌</h2>
+            <button onclick="getAccountInfo()">계좌 정보 조회</button>
+            <button onclick="getBalance()">잔액 조회</button>
+            <div id="accountResult" class="result"></div>
+        </div>
+
+        <!-- 거래 섹션 -->
+        <div class="section">
+            <h2>💸 거래</h2>
+            <input type="number" id="amount" placeholder="금액" value="10000">
+            <input type="text" id="description" placeholder="설명" value="테스트 입금">
+            <br>
+            <button onclick="deposit()">입금</button>
+            <button onclick="withdraw()">출금</button>
+            <div id="transactionResult" class="result"></div>
+        </div>
+
+        <!-- 토큰 정보 -->
+        <div class="section">
+            <h2>🔑 토큰 정보</h2>
+            <button onclick="decodeToken()">토큰 디코딩</button>
+            <button onclick="clearTokens()">토큰 초기화</button>
+            <div id="tokenResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        let accessToken = '';
+        let refreshToken = '';
+        const baseUrl = 'http://localhost:8081';
+
+        // 공통 함수
+        function showResult(elementId, data, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.className = `result ${isSuccess ? 'success' : 'error'}`;
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function apiCall(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${data.message || 'Unknown error'}`);
+                }
+                
+                return data;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        // 인증 함수들
+        async function register() {
+            try {
+                const phoneNumber = document.getElementById('phoneNumber').value;
+                const password = document.getElementById('password').value;
+                
+                const data = await apiCall(`${baseUrl}/auth/register`, {
+                    method: 'POST',
+                    body: JSON.stringify({ phoneNumber, password })
+                });
+                
+                accessToken = data.accessToken;
+                refreshToken = data.refreshToken;
+                
+                showResult('authResult', data, true);
+            } catch (error) {
+                showResult('authResult', { error: error.message }, false);
+            }
+        }
+
+        async function login() {
+            try {
+                const phoneNumber = document.getElementById('phoneNumber').value;
+                const password = document.getElementById('password').value;
+                
+                const data = await apiCall(`${baseUrl}/auth/login`, {
+                    method: 'POST',
+                    body: JSON.stringify({ phoneNumber, password })
+                });
+                
+                accessToken = data.accessToken;
+                refreshToken = data.refreshToken;
+                
+                showResult('authResult', data, true);
+            } catch (error) {
+                showResult('authResult', { error: error.message }, false);
+            }
+        }
+
+        async function refreshToken() {
+            try {
+                if (!refreshToken) {
+                    throw new Error('Refresh token이 없습니다. 먼저 로그인하세요.');
+                }
+                
+                const data = await apiCall(`${baseUrl}/auth/refresh`, {
+                    method: 'POST',
+                    body: JSON.stringify({ refreshToken })
+                });
+                
+                accessToken = data.accessToken;
+                
+                showResult('authResult', data, true);
+            } catch (error) {
+                showResult('authResult', { error: error.message }, false);
+            }
+        }
+
+        // 계좌 함수들
+        async function getAccountInfo() {
+            try {
+                if (!accessToken) {
+                    throw new Error('Access token이 없습니다. 먼저 로그인하세요.');
+                }
+                
+                const data = await apiCall(`${baseUrl}/accounts/info`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                
+                showResult('accountResult', data, true);
+            } catch (error) {
+                showResult('accountResult', { error: error.message }, false);
+            }
+        }
+
+        async function getBalance() {
+            try {
+                if (!accessToken) {
+                    throw new Error('Access token이 없습니다. 먼저 로그인하세요.');
+                }
+                
+                const data = await apiCall(`${baseUrl}/accounts/1/balance`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                
+                showResult('accountResult', data, true);
+            } catch (error) {
+                showResult('accountResult', { error: error.message }, false);
+            }
+        }
+
+        // 거래 함수들
+        async function deposit() {
+            try {
+                if (!accessToken) {
+                    throw new Error('Access token이 없습니다. 먼저 로그인하세요.');
+                }
+                
+                const amount = document.getElementById('amount').value;
+                const description = document.getElementById('description').value;
+                
+                const data = await apiCall(`${baseUrl}/accounts/1/deposit`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                    body: JSON.stringify({ amount: parseFloat(amount), description })
+                });
+                
+                showResult('transactionResult', data, true);
+            } catch (error) {
+                showResult('transactionResult', { error: error.message }, false);
+            }
+        }
+
+        async function withdraw() {
+            try {
+                if (!accessToken) {
+                    throw new Error('Access token이 없습니다. 먼저 로그인하세요.');
+                }
+                
+                const amount = document.getElementById('amount').value;
+                const description = document.getElementById('description').value;
+                
+                const data = await apiCall(`${baseUrl}/accounts/1/withdraw`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                    body: JSON.stringify({ amount: parseFloat(amount), description })
+                });
+                
+                showResult('transactionResult', data, true);
+            } catch (error) {
+                showResult('transactionResult', { error: error.message }, false);
+            }
+        }
+
+        // 토큰 함수들
+        function decodeToken() {
+            try {
+                if (!accessToken) {
+                    throw new Error('Access token이 없습니다.');
+                }
+                
+                const payload = accessToken.split('.')[1];
+                const decoded = JSON.parse(atob(payload));
+                
+                // 만료 시간 변환
+                if (decoded.exp) {
+                    decoded.expDate = new Date(decoded.exp * 1000).toLocaleString();
+                }
+                if (decoded.iat) {
+                    decoded.iatDate = new Date(decoded.iat * 1000).toLocaleString();
+                }
+                
+                showResult('tokenResult', decoded, true);
+            } catch (error) {
+                showResult('tokenResult', { error: error.message }, false);
+            }
+        }
+
+        function clearTokens() {
+            accessToken = '';
+            refreshToken = '';
+            showResult('tokenResult', { message: '토큰이 초기화되었습니다.' }, true);
+        }
+    </script>
+</body>
+</html> 

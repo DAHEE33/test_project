@@ -1,0 +1,186 @@
+{
+  "info": {
+    "name": "EasyPay Fintech API",
+    "description": "EasyPay 핀테크 시스템 API 테스트 콜렉션\n\nJWT 인증 사용법:\n1. 회원가입 또는 로그인 API 호출\n2. 응답에서 accessToken 추출\n3. Authorization 탭에서 Type을 'Bearer Token'으로 설정\n4. Token 필드에 JWT 입력\n5. 이후 모든 API 요청에 자동으로 헤더 추가됨",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8081",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accountId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "인증 API",
+      "item": [
+        {
+          "name": "회원가입",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"010-1234-5678\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "로그인",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"010-1234-5678\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "휴대폰 번호 체크",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/check-phone/010-1234-5678",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "check-phone", "010-1234-5678"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "토큰 갱신",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "로그아웃",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "계좌 API (JWT 필요)",
+      "item": [
+        {
+          "name": "잔액 조회",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/accounts/{{accountId}}/balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["accounts", "{{accountId}}", "balance"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "계좌 정보 조회",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/accounts/info",
+              "host": ["{{baseUrl}}"],
+              "path": ["accounts", "info"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "입금",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 10000,\n  \"description\": \"테스트 입금\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/accounts/{{accountId}}/deposit",
+              "host": ["{{baseUrl}}"],
+              "path": ["accounts", "{{accountId}}", "deposit"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+} 
