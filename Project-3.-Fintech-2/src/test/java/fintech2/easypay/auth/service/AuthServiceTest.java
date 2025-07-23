@@ -1,28 +1,26 @@
 package fintech2.easypay.auth.service;
 
-import fintech2.easypay.account.entity.VirtualAccount;
+import fintech2.easypay.auth.dto.LoginRequest;
+import fintech2.easypay.auth.dto.RegisterRequest;
 import fintech2.easypay.auth.entity.User;
 import fintech2.easypay.auth.repository.UserRepository;
-import fintech2.easypay.common.AccountStatus;
-import fintech2.easypay.common.UserStatus;
 import fintech2.easypay.common.exception.AuthException;
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,7 +33,7 @@ class AuthServiceTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private TokenService tokenService;
+    private JwtService jwtService;
 
     @Mock
     private LoginHistoryService loginHistoryService;
@@ -47,205 +45,189 @@ class AuthServiceTest {
     private AuthService authService;
 
     private User testUser;
-    private VirtualAccount testAccount;
+    private String phoneNumber = "010-1234-5678";
+    private String password = "password123";
+    private String name = "홍길동";
 
     @BeforeEach
     void setUp() {
-        testAccount = VirtualAccount.builder()
-                .id(1L)
-                .accountNumber("VA1234567800")
-                .status(AccountStatus.ACTIVE)
-                .build();
-
         testUser = User.builder()
                 .id(1L)
-                .phoneNumber("010-1234-5678")
+                .phoneNumber(phoneNumber)
                 .password("encodedPassword")
-                .status(UserStatus.ACTIVE)
-                .virtualAccount(testAccount)
+                .name(name)
+                .accountNumber("VA12345678")
                 .loginFailCount(0)
                 .isLocked(false)
+                .createdAt(LocalDateTime.now())
                 .build();
     }
 
     @Test
-    @DisplayName("회원가입 성공 테스트")
-    void createUser_Success() {
-        // given
-        String phoneNumber = "010-1234-5678";
-        String password = "password123";
-        
+    void 회원가입_성공() {
+        // Given
+        RegisterRequest request = new RegisterRequest();
+        request.setPhoneNumber(phoneNumber);
+        request.setPassword(password);
+        request.setName(name);
+
         when(userRepository.existsByPhoneNumber(phoneNumber)).thenReturn(false);
         when(passwordEncoder.encode(password)).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(jwtService.generateAccessToken(phoneNumber)).thenReturn("jwt-token");
 
-        // when
-        User result = authService.createUser(phoneNumber, password);
+        // When
+        ResponseEntity<?> response = authService.register(request);
 
-        // then
-        assertThat(result).isNotNull();
-        assertThat(result.getPhoneNumber()).isEqualTo(phoneNumber);
-        assertThat(result.getVirtualAccount()).isNotNull();
-        assertThat(result.getVirtualAccount().getAccountNumber()).startsWith("VA");
-        
+        // Then
+        assertThat(response.getStatusCodeValue()).isEqualTo(201);
         verify(userRepository).existsByPhoneNumber(phoneNumber);
-        verify(passwordEncoder).encode(password);
         verify(userRepository).save(any(User.class));
     }
 
     @Test
-    @DisplayName("중복 휴대폰 번호로 회원가입 실패 테스트")
-    void createUser_DuplicatePhoneNumber_ThrowsException() {
-        // given
-        String phoneNumber = "010-1234-5678";
-        String password = "password123";
-        
+    void 회원가입_중복전화번호() {
+        // Given
+        RegisterRequest request = new RegisterRequest();
+        request.setPhoneNumber(phoneNumber);
+        request.setPassword(password);
+        request.setName(name);
+
         when(userRepository.existsByPhoneNumber(phoneNumber)).thenReturn(true);
 
-        // when & then
-        assertThatThrownBy(() -> authService.createUser(phoneNumber, password))
+        // When & Then
+        assertThatThrownBy(() -> authService.register(request))
                 .isInstanceOf(AuthException.class)
-                .hasMessage("이미 가입된 휴대폰 번호입니다");
-        
+                .hasMessageContaining("이미 등록된 전화번호입니다");
+
         verify(userRepository).existsByPhoneNumber(phoneNumber);
-        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
-    @DisplayName("비밀번호 규칙 위반으로 회원가입 실패 테스트")
-    void createUser_InvalidPassword_ThrowsException() {
-        // given
-        String phoneNumber = "010-1234-5678";
-        String shortPassword = "123"; // 6자 미만
-        
+    void 회원가입_비밀번호규칙위반() {
+        // Given
+        RegisterRequest request = new RegisterRequest();
+        request.setPhoneNumber(phoneNumber);
+        request.setPassword("123"); // 짧은 비밀번호
+        request.setName(name);
+
         when(userRepository.existsByPhoneNumber(phoneNumber)).thenReturn(false);
 
-        // when & then
-        assertThatThrownBy(() -> authService.createUser(phoneNumber, shortPassword))
+        // When & Then
+        assertThatThrownBy(() -> authService.register(request))
                 .isInstanceOf(AuthException.class)
-                .hasMessage("비밀번호는 6자 이상이어야 합니다");
-        
+                .hasMessageContaining("비밀번호는 8자 이상이어야 합니다");
+
         verify(userRepository).existsByPhoneNumber(phoneNumber);
-        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
-    @DisplayName("로그인 성공 테스트")
-    void login_Success() {
-        // given
-        String phoneNumber = "010-1234-5678";
-        String password = "password123";
-        
-        when(userRepository.findByPhoneNumber(phoneNumber)).thenReturn(Optional.of(testUser));
+    void 로그인_성공() {
+        // Given
+        LoginRequest request = new LoginRequest();
+        request.setPhoneNumber(phoneNumber);
+        request.setPassword(password);
+
+        when(userRepository.findByPhoneNumber(phoneNumber)).thenReturn(java.util.Optional.of(testUser));
         when(passwordEncoder.matches(password, testUser.getPassword())).thenReturn(true);
-        when(userRepository.save(any(User.class))).thenReturn(testUser);
-        when(tokenService.generateTokenPair(testUser)).thenReturn(
-            TokenService.TokenPair.builder()
-                .accessToken("accessToken")
-                .refreshToken("refreshToken")
-                .build()
-        );
+        when(jwtService.generateAccessToken(phoneNumber)).thenReturn("jwt-token");
+        when(httpServletRequest.getHeader("User-Agent")).thenReturn("Mozilla/5.0");
+        when(httpServletRequest.getRemoteAddr()).thenReturn("127.0.0.1");
 
-        // when
-        TokenService.TokenPair result = authService.login(phoneNumber, password, httpServletRequest);
+        // When
+        ResponseEntity<?> response = authService.login(request);
 
-        // then
-        assertThat(result).isNotNull();
-        assertThat(result.getAccessToken()).isEqualTo("accessToken");
-        assertThat(result.getRefreshToken()).isEqualTo("refreshToken");
-        
-        verify(userRepository).findByPhoneNumber(phoneNumber);
-        verify(passwordEncoder).matches(password, testUser.getPassword());
+        // Then
+        assertThat(response.getStatusCodeValue()).isEqualTo(200);
         verify(loginHistoryService).recordLoginSuccess(testUser, httpServletRequest);
-        verify(tokenService).generateTokenPair(testUser);
+        verify(userRepository).save(testUser); // 로그인 성공 시 실패 카운트 리셋
     }
 
     @Test
-    @DisplayName("존재하지 않는 계정으로 로그인 실패 테스트")
-    void login_AccountNotFound_ThrowsException() {
-        // given
-        String phoneNumber = "010-1234-5678";
-        String password = "password123";
-        
-        when(userRepository.findByPhoneNumber(phoneNumber)).thenReturn(Optional.empty());
+    void 로그인_계정없음() {
+        // Given
+        LoginRequest request = new LoginRequest();
+        request.setPhoneNumber(phoneNumber);
+        request.setPassword(password);
 
-        // when & then
-        assertThatThrownBy(() -> authService.login(phoneNumber, password, httpServletRequest))
+        when(userRepository.findByPhoneNumber(phoneNumber)).thenReturn(java.util.Optional.empty());
+        when(httpServletRequest.getHeader("User-Agent")).thenReturn("Mozilla/5.0");
+        when(httpServletRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+
+        // When & Then
+        assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(AuthException.class)
-                .hasMessage("휴대폰 번호 또는 비밀번호가 올바르지 않습니다");
-        
-        verify(userRepository).findByPhoneNumber(phoneNumber);
+                .hasMessageContaining("계정을 찾을 수 없습니다");
+
         verify(loginHistoryService).recordAccountNotFound(phoneNumber, httpServletRequest);
-        verify(passwordEncoder, never()).matches(anyString(), anyString());
     }
 
     @Test
-    @DisplayName("잘못된 비밀번호로 로그인 실패 테스트")
-    void login_InvalidPassword_ThrowsException() {
-        // given
-        String phoneNumber = "010-1234-5678";
-        String wrongPassword = "wrongPassword";
-        
-        when(userRepository.findByPhoneNumber(phoneNumber)).thenReturn(Optional.of(testUser));
-        when(passwordEncoder.matches(wrongPassword, testUser.getPassword())).thenReturn(false);
-        when(userRepository.save(any(User.class))).thenReturn(testUser);
+    void 로그인_비밀번호불일치() {
+        // Given
+        LoginRequest request = new LoginRequest();
+        request.setPhoneNumber(phoneNumber);
+        request.setPassword("wrongPassword");
 
-        // when & then
-        assertThatThrownBy(() -> authService.login(phoneNumber, wrongPassword, httpServletRequest))
+        when(userRepository.findByPhoneNumber(phoneNumber)).thenReturn(java.util.Optional.of(testUser));
+        when(passwordEncoder.matches("wrongPassword", testUser.getPassword())).thenReturn(false);
+        when(httpServletRequest.getHeader("User-Agent")).thenReturn("Mozilla/5.0");
+        when(httpServletRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+
+        // When & Then
+        assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(AuthException.class)
-                .hasMessage("휴대폰 번호 또는 비밀번호가 올바르지 않습니다");
-        
-        verify(userRepository).findByPhoneNumber(phoneNumber);
-        verify(passwordEncoder).matches(wrongPassword, testUser.getPassword());
-        verify(loginHistoryService).recordLoginFailure(eq(phoneNumber), eq(testUser.getId()), 
-            anyString(), eq(httpServletRequest), eq(1), eq(false));
+                .hasMessageContaining("비밀번호가 일치하지 않습니다");
+
+        verify(loginHistoryService).recordLoginFailure(eq(phoneNumber), eq(testUser.getId()),
+                anyString(), eq(httpServletRequest), eq(1), eq(false));
+        verify(userRepository).save(testUser); // 실패 카운트 증가
     }
 
     @Test
-    @DisplayName("잠긴 계정으로 로그인 실패 테스트")
-    void login_LockedAccount_ThrowsException() {
-        // given
-        String phoneNumber = "010-1234-5678";
-        String password = "password123";
-        
-        testUser.setIsLocked(true);
-        testUser.setLockReason("로그인 5회 연속 실패");
+    void 로그인_계정잠금() {
+        // Given
+        testUser.setLocked(true);
         testUser.setLockExpiresAt(LocalDateTime.now().plusMinutes(30));
-        
-        when(userRepository.findByPhoneNumber(phoneNumber)).thenReturn(Optional.of(testUser));
 
-        // when & then
-        assertThatThrownBy(() -> authService.login(phoneNumber, password, httpServletRequest))
+        LoginRequest request = new LoginRequest();
+        request.setPhoneNumber(phoneNumber);
+        request.setPassword(password);
+
+        when(userRepository.findByPhoneNumber(phoneNumber)).thenReturn(java.util.Optional.of(testUser));
+        when(httpServletRequest.getHeader("User-Agent")).thenReturn("Mozilla/5.0");
+        when(httpServletRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+
+        // When & Then
+        assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(AuthException.class)
                 .hasMessageContaining("계정이 잠겨있습니다");
-        
-        verify(userRepository).findByPhoneNumber(phoneNumber);
-        verify(loginHistoryService).recordAccountLocked(eq(phoneNumber), eq(testUser.getId()), 
-            eq("로그인 5회 연속 실패"), eq(httpServletRequest));
-        verify(passwordEncoder, never()).matches(anyString(), anyString());
+
+        verify(loginHistoryService).recordAccountLocked(eq(phoneNumber), eq(testUser.getId()),
+                anyString(), eq(httpServletRequest));
     }
 
     @Test
-    @DisplayName("5회 연속 실패로 계정 잠금 테스트")
-    void login_FiveConsecutiveFailures_LocksAccount() {
-        // given
-        String phoneNumber = "010-1234-5678";
-        String wrongPassword = "wrongPassword";
-        
+    void 로그인_5회실패시_계정잠금() {
+        // Given
         testUser.setLoginFailCount(4); // 4회 실패 상태
-        
-        when(userRepository.findByPhoneNumber(phoneNumber)).thenReturn(Optional.of(testUser));
-        when(passwordEncoder.matches(wrongPassword, testUser.getPassword())).thenReturn(false);
-        when(userRepository.save(any(User.class))).thenReturn(testUser);
 
-        // when
-        assertThatThrownBy(() -> authService.login(phoneNumber, wrongPassword, httpServletRequest))
-                .isInstanceOf(AuthException.class);
+        LoginRequest request = new LoginRequest();
+        request.setPhoneNumber(phoneNumber);
+        request.setPassword("wrongPassword");
 
-        // then
-        verify(userRepository).save(any(User.class));
-        // 5회 실패 시 계정이 잠겨야 함
+        when(userRepository.findByPhoneNumber(phoneNumber)).thenReturn(java.util.Optional.of(testUser));
+        when(passwordEncoder.matches("wrongPassword", testUser.getPassword())).thenReturn(false);
+        when(httpServletRequest.getHeader("User-Agent")).thenReturn("Mozilla/5.0");
+        when(httpServletRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+
+        // When & Then
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(AuthException.class)
+                .hasMessageContaining("비밀번호가 일치하지 않습니다");
+
+        verify(userRepository).save(testUser);
+        assertThat(testUser.isLocked()).isTrue();
         assertThat(testUser.getLoginFailCount()).isEqualTo(5);
-        assertThat(testUser.getIsLocked()).isTrue();
     }
 } 

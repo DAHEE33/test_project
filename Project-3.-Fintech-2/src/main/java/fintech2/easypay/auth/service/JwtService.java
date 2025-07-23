@@ -3,121 +3,79 @@ package fintech2.easypay.auth.service;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
-import javax.crypto.SecretKey;
+import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
 public class JwtService {
 
-    @Value("${jwt.secret:defaultSecretKeyForDevelopmentOnly}")
+    @Value("${jwt.secret:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}")
     private String secretKey;
 
-    @Value("${jwt.expiration.access:3600000}") // 1시간
-    private long accessTokenExpiration;
+    @Value("${jwt.expiration:86400000}") // 24시간
+    private long jwtExpiration;
 
-    @Value("${jwt.expiration.refresh:2592000000}") // 30일
-    private long refreshTokenExpiration;
-
-    /**
-     * Access Token 생성
-     */
     public String generateAccessToken(String phoneNumber) {
-        return generateToken(phoneNumber, accessTokenExpiration);
+        return generateToken(new HashMap<>(), phoneNumber, jwtExpiration);
     }
 
-    /**
-     * Refresh Token 생성
-     */
-    public String generateRefreshToken(String phoneNumber) {
-        return generateToken(phoneNumber, refreshTokenExpiration);
-    }
-
-    /**
-     * JWT 토큰 생성
-     */
-    private String generateToken(String phoneNumber, long expiration) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("phoneNumber", phoneNumber);
-        
+    public String generateToken(Map<String, Object> extraClaims, String subject, long expiration) {
         return Jwts.builder()
-                .claims(claims)
-                .subject(phoneNumber)
-                .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getSigningKey())
+                .setClaims(extraClaims)
+                .setSubject(subject)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    /**
-     * 토큰에서 휴대폰 번호 추출
-     */
-    public String extractPhoneNumber(String token) {
+    public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
-    /**
-     * 토큰 만료일 추출
-     */
-    public Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    /**
-     * 토큰에서 특정 클레임 추출
-     */
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
 
-    /**
-     * 토큰에서 모든 클레임 추출
-     */
-    private Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+    public String extractPhoneNumber(String token) {
+        return extractUsername(token);
     }
 
-    /**
-     * 서명 키 생성
-     */
-    private SecretKey getSigningKey() {
-        byte[] keyBytes = secretKey.getBytes();
-        return Keys.hmacShaKeyFor(keyBytes);
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
     }
 
-    /**
-     * 토큰 만료 여부 확인
-     */
-    public Boolean isTokenExpired(String token) {
+    public boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
 
-    /**
-     * 토큰 유효성 검증
-     */
-    public Boolean validateToken(String token, String phoneNumber) {
-        final String extractedPhoneNumber = extractPhoneNumber(token);
-        return (phoneNumber.equals(extractedPhoneNumber) && !isTokenExpired(token));
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
 
-    /**
-     * 토큰 유효성 검증 (UserDetails 사용)
-     */
-    public Boolean isTokenValid(String token, org.springframework.security.core.userdetails.UserDetails userDetails) {
-        final String phoneNumber = userDetails.getUsername();
-        return validateToken(token, phoneNumber);
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .setSigningKey(getSignInKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    private Key getSignInKey() {
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 } 

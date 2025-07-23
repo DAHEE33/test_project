@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>EasyPay - 알람</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        .alarm-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .alarm-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #007bff;
+        }
+        
+        .alarm-item.warning {
+            border-left-color: #ffc107;
+        }
+        
+        .alarm-item.error {
+            border-left-color: #dc3545;
+        }
+        
+        .alarm-item.success {
+            border-left-color: #28a745;
+        }
+        
+        .alarm-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .alarm-type {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .alarm-time {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .alarm-message {
+            color: #555;
+            line-height: 1.4;
+        }
+        
+        .no-alarms {
+            text-align: center;
+            color: #666;
+            padding: 40px;
+        }
+        
+        .alarm-filter {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .filter-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+    </style>
+    <script defer src="/js/alarm.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏦 EasyPay</h1>
+            <button class="btn btn-small" onclick="goToMain()">← 메인으로</button>
+        </div>
+
+        <div class="alarm-container">
+            <h2>🔔 알람 내역</h2>
+            
+            <div class="alarm-filter">
+                <button class="filter-btn active" onclick="filterAlarms('all')">전체</button>
+                <button class="filter-btn" onclick="filterAlarms('balance')">잔액</button>
+                <button class="filter-btn" onclick="filterAlarms('login')">로그인</button>
+                <button class="filter-btn" onclick="filterAlarms('system')">시스템</button>
+            </div>
+
+            <div id="alarmList">
+                <div class="no-alarms">알람을 불러오는 중...</div>
+            </div>
+        </div>
+
+        <div class="alert" id="alarmAlert"></div>
+    </div>
+</body>
+</html> 

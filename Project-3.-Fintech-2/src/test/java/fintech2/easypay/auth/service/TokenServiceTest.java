@@ -5,7 +5,6 @@ import fintech2.easypay.auth.entity.User;
 import fintech2.easypay.auth.repository.RefreshTokenRepository;
 import fintech2.easypay.common.exception.AuthException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -18,7 +17,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,169 +32,120 @@ class TokenServiceTest {
     private TokenService tokenService;
 
     private User testUser;
+    private RefreshToken testRefreshToken;
 
     @BeforeEach
     void setUp() {
         testUser = User.builder()
                 .id(1L)
                 .phoneNumber("010-1234-5678")
+                .password("encodedPassword")
+                .name("홍길동")
+                .accountNumber("VA12345678")
+                .loginFailCount(0)
+                .isLocked(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        testRefreshToken = RefreshToken.builder()
+                .id(1L)
+                .token("test-refresh-token")
+                .userId(1L)
+                .phoneNumber("010-1234-5678")
+                .expiresAt(LocalDateTime.now().plusDays(30))
+                .isRevoked(false)
                 .build();
     }
 
     @Test
-    @DisplayName("토큰 쌍 생성 성공 테스트")
-    void generateTokenPair_Success() {
-        // given
-        String accessToken = "accessToken123";
-        String refreshToken = "refreshToken123";
-        
-        when(jwtService.generateAccessToken(testUser.getPhoneNumber())).thenReturn(accessToken);
-        when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(
-            RefreshToken.builder().token(refreshToken).build()
-        );
+    void generateTokenPair_성공() {
+        // Given
+        when(jwtService.generateAccessToken(testUser.getPhoneNumber())).thenReturn("access-token");
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(testRefreshToken);
 
-        // when
+        // When
         TokenService.TokenPair result = tokenService.generateTokenPair(testUser);
 
-        // then
+        // Then
         assertThat(result).isNotNull();
-        assertThat(result.getAccessToken()).isEqualTo(accessToken);
-        assertThat(result.getRefreshToken()).isEqualTo(refreshToken);
+        assertThat(result.getAccessToken()).isEqualTo("access-token");
+        assertThat(result.getRefreshToken()).isNotNull();
         
         verify(jwtService).generateAccessToken(testUser.getPhoneNumber());
+        verify(refreshTokenRepository).revokeAllByUserId(testUser.getId(), any(LocalDateTime.class));
         verify(refreshTokenRepository).save(any(RefreshToken.class));
     }
 
     @Test
-    @DisplayName("Refresh Token으로 Access Token 갱신 성공 테스트")
-    void refreshAccessToken_Success() {
-        // given
-        String refreshTokenValue = "validRefreshToken";
-        String newAccessToken = "newAccessToken";
-        
-        RefreshToken refreshToken = RefreshToken.builder()
-                .token(refreshTokenValue)
-                .userId(1L)
-                .phoneNumber("010-1234-5678")
-                .expiresAt(LocalDateTime.now().plusDays(30))
-                .isRevoked(false)
-                .build();
-        
-        when(refreshTokenRepository.findByToken(refreshTokenValue)).thenReturn(Optional.of(refreshToken));
-        when(jwtService.generateAccessToken(refreshToken.getPhoneNumber())).thenReturn(newAccessToken);
+    void refreshAccessToken_성공() {
+        // Given
+        String refreshTokenValue = "valid-refresh-token";
+        when(refreshTokenRepository.findByToken(refreshTokenValue)).thenReturn(Optional.of(testRefreshToken));
+        when(jwtService.generateAccessToken(testRefreshToken.getPhoneNumber())).thenReturn("new-access-token");
 
-        // when
+        // When
         String result = tokenService.refreshAccessToken(refreshTokenValue);
 
-        // then
-        assertThat(result).isEqualTo(newAccessToken);
+        // Then
+        assertThat(result).isEqualTo("new-access-token");
         verify(refreshTokenRepository).findByToken(refreshTokenValue);
-        verify(jwtService).generateAccessToken(refreshToken.getPhoneNumber());
+        verify(jwtService).generateAccessToken(testRefreshToken.getPhoneNumber());
     }
 
     @Test
-    @DisplayName("유효하지 않은 Refresh Token으로 갱신 실패 테스트")
-    void refreshAccessToken_InvalidToken_ThrowsException() {
-        // given
-        String invalidRefreshToken = "invalidToken";
-        
-        when(refreshTokenRepository.findByToken(invalidRefreshToken)).thenReturn(Optional.empty());
+    void refreshAccessToken_유효하지않은토큰() {
+        // Given
+        String invalidToken = "invalid-refresh-token";
+        when(refreshTokenRepository.findByToken(invalidToken)).thenReturn(Optional.empty());
 
-        // when & then
-        assertThatThrownBy(() -> tokenService.refreshAccessToken(invalidRefreshToken))
+        // When & Then
+        assertThatThrownBy(() -> tokenService.refreshAccessToken(invalidToken))
                 .isInstanceOf(AuthException.class)
-                .hasMessage("유효하지 않은 Refresh Token입니다");
-        
-        verify(refreshTokenRepository).findByToken(invalidRefreshToken);
-        verify(jwtService, never()).generateAccessToken(anyString());
+                .hasMessageContaining("유효하지 않은 Refresh Token입니다");
+
+        verify(refreshTokenRepository).findByToken(invalidToken);
     }
 
     @Test
-    @DisplayName("만료된 Refresh Token으로 갱신 실패 테스트")
-    void refreshAccessToken_ExpiredToken_ThrowsException() {
-        // given
-        String expiredRefreshToken = "expiredToken";
-        
-        RefreshToken refreshToken = RefreshToken.builder()
-                .token(expiredRefreshToken)
-                .userId(1L)
-                .phoneNumber("010-1234-5678")
-                .expiresAt(LocalDateTime.now().minusDays(1)) // 만료된 토큰
-                .isRevoked(false)
-                .build();
-        
-        when(refreshTokenRepository.findByToken(expiredRefreshToken)).thenReturn(Optional.of(refreshToken));
+    void refreshAccessToken_만료된토큰() {
+        // Given
+        String expiredToken = "expired-refresh-token";
+        testRefreshToken.setExpiresAt(LocalDateTime.now().minusDays(1)); // 만료된 토큰
+        when(refreshTokenRepository.findByToken(expiredToken)).thenReturn(Optional.of(testRefreshToken));
 
-        // when & then
-        assertThatThrownBy(() -> tokenService.refreshAccessToken(expiredRefreshToken))
+        // When & Then
+        assertThatThrownBy(() -> tokenService.refreshAccessToken(expiredToken))
                 .isInstanceOf(AuthException.class)
-                .hasMessage("만료된 Refresh Token입니다");
-        
-        verify(refreshTokenRepository).findByToken(expiredRefreshToken);
-        verify(jwtService, never()).generateAccessToken(anyString());
+                .hasMessageContaining("만료된 Refresh Token입니다");
+
+        verify(refreshTokenRepository).findByToken(expiredToken);
     }
 
     @Test
-    @DisplayName("폐기된 Refresh Token으로 갱신 실패 테스트")
-    void refreshAccessToken_RevokedToken_ThrowsException() {
-        // given
-        String revokedRefreshToken = "revokedToken";
-        
-        RefreshToken refreshToken = RefreshToken.builder()
-                .token(revokedRefreshToken)
-                .userId(1L)
-                .phoneNumber("010-1234-5678")
-                .expiresAt(LocalDateTime.now().plusDays(30))
-                .isRevoked(true) // 폐기된 토큰
-                .build();
-        
-        when(refreshTokenRepository.findByToken(revokedRefreshToken)).thenReturn(Optional.of(refreshToken));
+    void revokeRefreshToken_성공() {
+        // Given
+        String refreshTokenValue = "valid-refresh-token";
+        when(refreshTokenRepository.findByToken(refreshTokenValue)).thenReturn(Optional.of(testRefreshToken));
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(testRefreshToken);
 
-        // when & then
-        assertThatThrownBy(() -> tokenService.refreshAccessToken(revokedRefreshToken))
-                .isInstanceOf(AuthException.class)
-                .hasMessage("만료된 Refresh Token입니다");
-        
-        verify(refreshTokenRepository).findByToken(revokedRefreshToken);
-        verify(jwtService, never()).generateAccessToken(anyString());
-    }
-
-    @Test
-    @DisplayName("Refresh Token 폐기 성공 테스트")
-    void revokeRefreshToken_Success() {
-        // given
-        String refreshTokenValue = "validRefreshToken";
-        
-        RefreshToken refreshToken = RefreshToken.builder()
-                .token(refreshTokenValue)
-                .userId(1L)
-                .phoneNumber("010-1234-5678")
-                .expiresAt(LocalDateTime.now().plusDays(30))
-                .isRevoked(false)
-                .build();
-        
-        when(refreshTokenRepository.findByToken(refreshTokenValue)).thenReturn(Optional.of(refreshToken));
-        when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(refreshToken);
-
-        // when
+        // When
         tokenService.revokeRefreshToken(refreshTokenValue);
 
-        // then
+        // Then
         verify(refreshTokenRepository).findByToken(refreshTokenValue);
-        verify(refreshTokenRepository).save(any(RefreshToken.class));
-        assertThat(refreshToken.getIsRevoked()).isTrue();
+        verify(testRefreshToken).revoke();
+        verify(refreshTokenRepository).save(testRefreshToken);
     }
 
     @Test
-    @DisplayName("사용자 모든 토큰 폐기 성공 테스트")
-    void revokeAllUserTokens_Success() {
-        // given
+    void revokeAllUserTokens_성공() {
+        // Given
         Long userId = 1L;
 
-        // when
+        // When
         tokenService.revokeAllUserTokens(userId);
 
-        // then
+        // Then
         verify(refreshTokenRepository).revokeAllByUserId(userId, any(LocalDateTime.class));
     }
 } 

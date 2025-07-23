@@ -2,10 +2,9 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EasyPay - 회원가입</title>
     <link rel="stylesheet" href="/css/common.css">
-    <link rel="stylesheet" href="/css/login.css">
+    <script defer src="/js/auth.js"></script>
 </head>
 <body>
     <div class="container">
@@ -16,100 +15,31 @@
 
         <div class="login-form">
             <h2>회원가입</h2>
-            <form id="register-form">
+            <form id="registerForm">
                 <div class="form-group">
-                    <label for="reg-phone">휴대폰 번호</label>
-                    <input type="tel" id="reg-phone" placeholder="010-1234-5678" required>
+                    <label for="regPhoneNumber">휴대폰 번호</label>
+                    <input type="tel" id="regPhoneNumber" placeholder="010-1234-5678" required>
                 </div>
                 <div class="form-group">
-                    <label for="reg-password">비밀번호 (6자 이상, 영문 포함)</label>
-                    <input type="password" id="reg-password" required>
+                    <label for="regPassword">비밀번호 (6자 이상)</label>
+                    <input type="password" id="regPassword" required>
                 </div>
                 <div class="form-group">
-                    <label for="reg-password-confirm">비밀번호 확인</label>
-                    <input type="password" id="reg-password-confirm" required>
+                    <label for="regName">이름</label>
+                    <input type="text" id="regName" placeholder="홍길동" required>
                 </div>
                 <button type="submit" class="btn btn-primary btn-full">
-                    <span class="loading" id="register-loading"></span>
+                    <span class="loading" id="registerLoading"></span>
                     회원가입
                 </button>
             </form>
             
             <div class="signup-link">
-                <p>이미 계정이 있으신가요? <a href="/index.html">로그인하기</a></p>
+                <p>이미 계정이 있으신가요? <a href="javascript:goToLogin()">로그인하기</a></p>
             </div>
 
-            <div class="alert" id="register-alert"></div>
+            <div class="alert" id="registerAlert"></div>
         </div>
     </div>
-
-    <script src="/js/api.js"></script>
-    <script>
-        // 회원가입 폼 처리
-        document.getElementById('register-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const phone = document.getElementById('reg-phone').value;
-            const password = document.getElementById('reg-password').value;
-            const passwordConfirm = document.getElementById('reg-password-confirm').value;
-            const loading = document.getElementById('register-loading');
-            const alert = document.getElementById('register-alert');
-            
-            // 비밀번호 확인
-            if (password !== passwordConfirm) {
-                showAlert('비밀번호가 일치하지 않습니다.', 'error');
-                return;
-            }
-            
-            // 비밀번호 규칙 검증
-            if (password.length < 6) {
-                showAlert('비밀번호는 6자 이상이어야 합니다.', 'error');
-                return;
-            }
-            
-            if (!/[A-Za-z]/.test(password)) {
-                showAlert('비밀번호는 영문자를 포함해야 합니다.', 'error');
-                return;
-            }
-            
-            loading.classList.add('show');
-            alert.className = 'alert';
-            alert.style.display = 'none';
-            
-            try {
-                const response = await api.register(phone, password);
-                
-                if (response.accessToken) {
-                    showAlert('회원가입 성공! 로그인 페이지로 이동합니다.', 'success');
-                    setTimeout(() => {
-                        window.location.href = '/index.html';
-                    }, 2000);
-                }
-            } catch (error) {
-                // 구체적인 에러 메시지 처리
-                let errorMessage = '회원가입에 실패했습니다.';
-                
-                if (error.message.includes('DUPLICATE_PHONE')) {
-                    errorMessage = '이미 가입된 휴대폰 번호입니다.';
-                } else if (error.message.includes('INVALID_PASSWORD')) {
-                    errorMessage = '비밀번호는 6자 이상이며 영문자를 포함해야 합니다.';
-                } else if (error.message.includes('NetworkError') || error.message.includes('fetch')) {
-                    errorMessage = '서버에 연결할 수 없습니다. 인터넷 연결을 확인해주세요.';
-                } else if (error.message) {
-                    errorMessage = error.message;
-                }
-                
-                showAlert(errorMessage, 'error');
-            } finally {
-                loading.classList.remove('show');
-            }
-        });
-
-        function showAlert(message, type) {
-            const alert = document.getElementById('register-alert');
-            alert.textContent = message;
-            alert.className = `alert alert-${type} show`;
-        }
-    </script>
 </body>
 </html> 

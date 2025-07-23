@@ -34,10 +34,18 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
+                // 인증 불필요 (Public)
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
+                // 정적 리소스 허용
                 .requestMatchers("/static/**").permitAll()
-                .requestMatchers("/test.html").permitAll()
+                .requestMatchers("/js/**").permitAll()
+                .requestMatchers("/css/**").permitAll()
+                .requestMatchers("/favicon.ico").permitAll()
+                .requestMatchers("/", "/index.html", "/register.html", "/main.html", "/balance.html").permitAll()
+                // 계좌 관련 API (JWT 인증 필요)
+                .requestMatchers("/accounts/**").authenticated()
+                // 나머지 모든 요청은 인증 필요
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session
@@ -47,7 +55,7 @@ public class SecurityConfig {
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         // H2 콘솔을 위한 헤더 설정
-        http.headers(headers -> headers.frameOptions().disable());
+        http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
 
         return http.build();
     }

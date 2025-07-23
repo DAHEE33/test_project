@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>EasyPay - 잔액조회</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <script defer src="/js/balance.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏦 EasyPay</h1>
+            <button class="btn btn-small" onclick="goToMain()">← 메인으로</button>
+        </div>
+
+        <div class="balance-content">
+            <div class="balance-card">
+                <h2>현재 잔액</h2>
+                <div class="balance-amount" id="currentBalance">0 원</div>
+                <p class="balance-account">계좌번호: <span id="balanceAccountNumber">-</span></p>
+            </div>
+
+            <div class="test-section">
+                <h3>💡 테스트용 기능</h3>
+                <div class="test-buttons">
+                    <input type="number" id="testAmount" placeholder="금액 입력" min="1000" step="1000" value="10000">
+                    <button class="btn btn-primary" onclick="testDeposit()">테스트 입금</button>
+                    <button class="btn btn-secondary" onclick="testWithdraw()">테스트 출금</button>
+                </div>
+            </div>
+
+            <div class="transaction-section">
+                <h3>거래내역</h3>
+                <div class="period-filter">
+                    <select id="periodSelect" onchange="loadTransactionHistory()">
+                        <option value="7">최근 7일</option>
+                        <option value="30">최근 30일</option>
+                        <option value="90">최근 90일</option>
+                        <option value="all">전체</option>
+                    </select>
+                    <button class="btn btn-small" onclick="loadTransactionHistory()">조회</button>
+                </div>
+                <div class="transaction-list" id="transactionList">
+                    <p class="no-data">거래내역이 없습니다.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert" id="balanceAlert"></div>
+    </div>
+</body>
+</html> 

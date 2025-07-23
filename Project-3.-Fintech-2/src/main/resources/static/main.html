@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>EasyPay - 메인</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <script defer src="/js/main.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏦 EasyPay</h1>
+            <div class="header-actions">
+                <div class="notification-icon" onclick="goToAlarm()">
+                    🔔
+                    <span class="notification-badge">3</span>
+                </div>
+                <button class="btn btn-small" onclick="logout()">로그아웃</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="welcome-section">
+                <h2>안녕하세요! <span id="userName">고객님</span></h2>
+                <p>어떤 서비스를 이용하시겠습니까?</p>
+            </div>
+
+            <div class="service-buttons">
+                <button class="service-btn" onclick="goToTransfer()">
+                    <div class="service-icon">💸</div>
+                    <div class="service-text">송금하기</div>
+                </button>
+                <button class="service-btn" onclick="goToPayment()">
+                    <div class="service-icon">💳</div>
+                    <div class="service-text">결제하기</div>
+                </button>
+                <button class="service-btn" onclick="goToBalance()">
+                    <div class="service-icon">💰</div>
+                    <div class="service-text">잔액조회</div>
+                </button>
+            </div>
+
+            <div class="quick-info">
+                <div class="info-card">
+                    <h3>내 계좌번호</h3>
+                    <p id="accountNumber">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

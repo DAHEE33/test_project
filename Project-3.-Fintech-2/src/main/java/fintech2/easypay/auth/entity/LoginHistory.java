@@ -15,36 +15,22 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class LoginHistory {
-    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
-    @Column(nullable = false)
-    private Long userId;
-    
-    @Column(nullable = false)
+
     private String phoneNumber;
-    
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private LoginResult result;
-    
-    @Column(nullable = false)
-    private String ipAddress;
-    
-    @Column
+    private Long userId;
     private String userAgent;
-    
-    @Column
-    private String failureReason; // 실패 사유
-    
-    @Column
-    private Integer failCount; // 현재 실패 횟수
-    
-    @Column
-    private Boolean isLocked; // 잠금 상태
-    
+    private String ipAddress;
+
+    @Enumerated(EnumType.STRING)
+    private LoginResult result;
+
+    private String failReason;
+    private Integer failCount;
+    private boolean isLocked;
+
     @CreationTimestamp
-    private LocalDateTime createdAt;
+    private LocalDateTime loginAt;
 } 

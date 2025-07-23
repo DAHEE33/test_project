@@ -2,122 +2,40 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EasyPay - 로그인</title>
     <link rel="stylesheet" href="/css/common.css">
-    <link rel="stylesheet" href="/css/login.css">
+    <script defer src="/js/auth.js"></script>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🏦 EasyPay</h1>
-            <p>안전하고 편리한 가상계좌 서비스</p>
+            <p>안전하고 편리한 금융 서비스</p>
         </div>
 
         <div class="login-form">
             <h2>로그인</h2>
-            <form id="login-form">
+            <form id="loginForm">
                 <div class="form-group">
-                    <label for="login-phone">휴대폰 번호</label>
-                    <input type="tel" id="login-phone" placeholder="010-1234-5678" required>
+                    <label for="phoneNumber">휴대폰 번호</label>
+                    <input type="tel" id="phoneNumber" placeholder="010-1234-5678" required>
                 </div>
                 <div class="form-group">
-                    <label for="login-password">비밀번호</label>
-                    <input type="password" id="login-password" required>
+                    <label for="password">비밀번호</label>
+                    <input type="password" id="password" required>
                 </div>
                 <button type="submit" class="btn btn-primary btn-full">
-                    <span class="loading" id="login-loading"></span>
+                    <span class="loading" id="loginLoading"></span>
                     로그인
                 </button>
             </form>
             
             <div class="signup-link">
-                <p>아이디가 없으신가요? <a href="/register.html">회원가입하기</a></p>
+                <p>아이디가 없으신가요? <a href="javascript:goToRegister()">회원가입하시겠습니까?</a></p>
             </div>
 
-            <div class="sample-accounts">
-                <h4>🎯 테스트용 샘플 계정</h4>
-                <div class="sample-account" onclick="fillLoginForm('010-1234-5678', 'password123')">
-                    <span class="phone">010-1234-5678</span>
-                    <span class="password">password123</span>
-                </div>
-                <div class="sample-account" onclick="fillLoginForm('010-9876-5432', 'password456')">
-                    <span class="phone">010-9876-5432</span>
-                    <span class="password">password456</span>
-                </div>
-                <p style="text-align: center; margin-top: 10px; font-size: 0.8em; color: #666;">
-                    클릭하면 자동으로 입력됩니다
-                </p>
-            </div>
-
-            <div class="alert" id="login-alert"></div>
+            <div class="alert" id="loginAlert"></div>
         </div>
     </div>
-
-    <script src="/js/api.js"></script>
-    <script src="/js/auth.js"></script>
-    <script>
-        // 로그인 폼 처리
-        document.getElementById('login-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const phone = document.getElementById('login-phone').value;
-            const password = document.getElementById('login-password').value;
-            const loading = document.getElementById('login-loading');
-            const alert = document.getElementById('login-alert');
-            
-            loading.classList.add('show');
-            alert.className = 'alert';
-            alert.style.display = 'none';
-            
-            try {
-                const response = await login(phone, password);
-                
-                if (response.accessToken) {
-                    // 로그인 성공 - 대시보드로 이동
-                    localStorage.setItem('accessToken', response.accessToken);
-                    localStorage.setItem('refreshToken', response.refreshToken);
-                    localStorage.setItem('userPhone', phone);
-                    
-                    showAlert('로그인 성공!', 'success');
-                    setTimeout(() => {
-                        window.location.href = '/dashboard.html';
-                    }, 1000);
-                }
-            } catch (error) {
-                // 구체적인 에러 메시지 처리
-                let errorMessage = '로그인에 실패했습니다.';
-                
-                if (error.message.includes('INVALID_CREDENTIALS')) {
-                    errorMessage = '휴대폰 번호 또는 비밀번호가 올바르지 않습니다.';
-                } else if (error.message.includes('ACCOUNT_NOT_FOUND')) {
-                    errorMessage = '해당 계정이 존재하지 않습니다. 회원가입을 먼저 진행해주세요.';
-                } else if (error.message.includes('ACCOUNT_LOCKED')) {
-                    errorMessage = '계정이 잠겨있습니다. 잠시 후 다시 시도해주세요.';
-                } else if (error.message.includes('ACCOUNT_INACTIVE')) {
-                    errorMessage = '비활성화된 계정입니다. 관리자에게 문의하세요.';
-                } else if (error.message.includes('NetworkError') || error.message.includes('fetch')) {
-                    errorMessage = '서버에 연결할 수 없습니다. 인터넷 연결을 확인해주세요.';
-                } else if (error.message) {
-                    errorMessage = error.message;
-                }
-                
-                showAlert(errorMessage, 'error');
-            } finally {
-                loading.classList.remove('show');
-            }
-        });
-
-        function fillLoginForm(phone, password) {
-            document.getElementById('login-phone').value = phone;
-            document.getElementById('login-password').value = password;
-        }
-
-        function showAlert(message, type) {
-            const alert = document.getElementById('login-alert');
-            alert.textContent = message;
-            alert.className = `alert alert-${type} show`;
-        }
-    </script>
 </body>
 </html> 

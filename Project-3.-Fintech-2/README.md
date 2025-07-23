@@ -1,172 +1,426 @@
-# EasyPay Fintech System
+# EasyPay - 금융 서비스 API
 
-## 🚀 프로젝트 개요
-Spring Boot 기반의 핀테크 시스템으로 회원가입, 로그인, 가상계좌 관리, 잔액 조회 등의 기능을 제공합니다.
+안전하고 편리한 가상계좌 기반 금융 서비스 플랫폼
 
-## 🔐 JWT 인증 사용법
+## 📋 목차
+- [구현 기능](#-구현-기능)
+- [기술 스택](#-기술-스택)
+- [API 가이드](#-api-가이드)
+- [송금/결제 담당자 가이드](#-송금결제-담당자-가이드)
+- [알람 시스템](#-알람-시스템)
+- [테스트 진행 방법](#-테스트-진행-방법)
+- [프로젝트 구조](#-프로젝트-구조)
 
-### 1. 로그인/회원가입
-```bash
-# 회원가입
+## 🚀 구현 기능
+
+### 1. 회원가입/인증 시스템
+- **회원가입**: 휴대폰 번호 중복 체크, 비밀번호 암호화(BCrypt), 가상계좌 자동 생성
+- **로그인**: JWT 토큰 발급, 5회 실패 시 30분 계정 잠금
+- **보안**: JWT 기반 인증, 로그인 이력 기록, 계정 잠금 관리
+
+### 2. 가상계좌 및 잔액 관리
+- **가상계좌 생성**: "VA" + 8자리 숫자 + 2자리 체크섬 형태
+- **잔액 조회**: JWT 인증 기반 본인 계좌 조회
+- **잔액 증감**: 비관적 락, 잔액 부족 검증, 거래내역 자동 기록
+- **거래내역**: 모든 거래 추적 및 조회 가능
+
+### 3. 알람/감사 로그 시스템
+- **감사 로그**: 모든 중요 비즈니스 이벤트 기록
+- **자동 알람**: 에러/경고/중요 이벤트 시 실시간 알림
+- **확장성**: SMTP, Slack 연동 준비 완료
+
+### 4. 프론트엔드 (4페이지)
+- **로그인 페이지**: 기본 접속 페이지
+- **회원가입 페이지**: 완료 시 팝업 및 자동 이동
+- **메인 페이지**: 송금/결제/잔액조회 버튼, 알림 아이콘
+- **잔액조회 페이지**: 현재 잔액, 테스트 입출금, 거래내역
+
+## 🛠 기술 스택
+
+- **Backend**: Spring Boot 3.x, Java 17+, JPA/Hibernate
+- **Security**: Spring Security, JWT (JJWT 0.12.5)
+- **Database**: H2 (개발), PostgreSQL/MySQL (운영 가능)
+- **Frontend**: HTML5, CSS3, JavaScript (Vanilla)
+- **Build**: Gradle (Kotlin DSL)
+
+## 📡 API 가이드
+
+### 인증 API
+
+#### 회원가입
+```http
 POST /auth/register
-{
-  "phoneNumber": "010-1234-5678",
-  "password": "password123"
-}
+Content-Type: application/json
 
-# 로그인
-POST /auth/login
 {
-  "phoneNumber": "010-1234-5678",
-  "password": "password123"
+    "phoneNumber": "010-1234-5678",
+    "password": "password123",
+    "name": "홍길동"
 }
 ```
 
-### 2. JWT 토큰 응답
+**응답 (성공 201)**
 ```json
 {
-  "success": true,
-  "message": "로그인 성공",
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "accountNumber": "VA1234567890"
+    "message": "회원가입이 완료되었습니다",
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "accountNumber": "VA12345678"
 }
 ```
 
-### 3. 인증 API 호출 방법
-모든 인증이 필요한 API 호출 시 아래 헤더를 추가하세요:
+#### 로그인
+```http
+POST /auth/login
+Content-Type: application/json
 
-```bash
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-### 4. Spring Boot 컨트롤러에서 사용법
-```java
-@GetMapping("/account/balance")
-public ResponseEntity<BalanceResponse> getBalance(
-    @AuthenticationPrincipal UserPrincipal userPrincipal) {
-    // userPrincipal에서 사용자 정보 추출
-    Long userId = userPrincipal.getId();
-    String phoneNumber = userPrincipal.getPhoneNumber();
-    
-    // 비즈니스 로직 구현
-    return ResponseEntity.ok(balanceService.getBalance(userId));
+{
+    "phoneNumber": "010-1234-5678",
+    "password": "password123"
 }
 ```
 
-## 📖 API 명세
-
-### 인증 API (JWT 불필요)
-- `POST /auth/register` - 회원가입
-- `POST /auth/login` - 로그인
-- `GET /auth/check-phone/{phoneNumber}` - 휴대폰 번호 체크
-- `POST /auth/refresh` - 토큰 갱신
-- `POST /auth/logout` - 로그아웃
-
-### 계좌 API (JWT 필요)
-- `GET /accounts/{accountId}/balance` - 잔액 조회
-- `POST /accounts/{accountId}/deposit` - 입금
-- `POST /accounts/{accountId}/withdraw` - 출금
-- `POST /accounts/{accountId}/transfer` - 이체
-
-## 🛠️ 개발 환경 설정
-
-### 필수 요구사항
-- Java 17+
-- Gradle 8.0+
-
-### 실행 방법
-```bash
-# 프로젝트 클론
-git clone [repository-url]
-
-# 프로젝트 디렉토리 이동
-cd Project-3.-Fintech-2
-
-# 애플리케이션 실행
-./gradlew bootRun
+**응답 (성공 200)**
+```json
+{
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
 ```
 
-### 접속 정보
-- **애플리케이션**: http://localhost:8081
-- **H2 콘솔**: http://localhost:8081/h2-console
-  - JDBC URL: `jdbc:h2:mem:testdb`
-  - Username: `sa`
-  - Password: (비어있음)
+### 계좌 API
 
-## 🧪 테스트 방법
-
-### 1. Postman 사용
-1. 회원가입/로그인 API 호출
-2. 응답에서 `accessToken` 추출
-3. Postman의 Authorization 탭에서 Type을 "Bearer Token"으로 설정
-4. Token 필드에 JWT 입력
-5. 이후 모든 API 요청에 자동으로 헤더 추가됨
-
-### 2. PowerShell 스크립트 사용
-```bash
-# 기본 API 테스트
-powershell -ExecutionPolicy Bypass -File test-api.ps1
-
-# 로그인 실패 테스트
-powershell -ExecutionPolicy Bypass -File test-login-failure.ps1
+#### 잔액 조회
+```http
+GET /accounts/{accountNumber}/balance
+Authorization: Bearer {accessToken}
 ```
 
-### 3. 브라우저 테스트
-- http://localhost:8081/test.html - 간단한 API 테스트 페이지
+**응답 (성공 200)**
+```json
+{
+    "accountNumber": "VA12345678",
+    "balance": 50000.00,
+    "currency": "KRW"
+}
+```
 
-## 🔧 공통 모듈 사용법
+#### 거래내역 조회
+```http
+GET /accounts/{accountNumber}/transactions
+Authorization: Bearer {accessToken}
+```
 
-### JWT 토큰 검증
-모든 인증이 필요한 API는 자동으로 JWT 토큰을 검증합니다.
+**응답 (성공 200)**
+```json
+[
+    {
+        "id": 1,
+        "accountNumber": "VA12345678",
+        "transactionType": "DEPOSIT",
+        "amount": 10000.00,
+        "balanceBefore": 40000.00,
+        "balanceAfter": 50000.00,
+        "description": "테스트 입금",
+        "status": "COMPLETED",
+        "createdAt": "2024-01-15T10:30:00"
+    }
+]
+```
 
-### 사용자 정보 추출
+## 💸 송금/결제 담당자 가이드
+
+### 잔액 증감 API 호출
+
+송금/결제 시스템에서 실제 잔액 변경을 위해 호출하는 API입니다.
+
+```http
+POST /accounts/update-balance
+Content-Type: application/json
+Authorization: Bearer {accessToken}
+
+{
+    "accountNumber": "VA12345678",
+    "amount": 50000,
+    "transactionType": "TRANSFER_OUT",
+    "description": "홍길동님께 송금"
+}
+```
+
+### 요청 파라미터
+- `accountNumber`: 대상 계좌번호
+- `amount`: 금액 (양수: 입금, 음수: 출금)
+- `transactionType`: 거래 유형 (DEPOSIT, WITHDRAW, TRANSFER_IN, TRANSFER_OUT, PAYMENT 등)
+- `description`: 거래 설명
+
+### 응답 처리
+
+#### 성공 (200)
+```json
+{
+    "accountNumber": "VA12345678",
+    "balanceBefore": 100000.00,
+    "balanceAfter": 50000.00,
+    "transactionType": "TRANSFER_OUT",
+    "amount": -50000.00,
+    "message": "잔액이 성공적으로 변경되었습니다"
+}
+```
+
+#### 실패 - 잔액 부족 (400)
+```json
+{
+    "error": "INSUFFICIENT_BALANCE",
+    "message": "잔액이 부족합니다"
+}
+```
+
+#### 실패 - 계좌 없음 (404)
+```json
+{
+    "error": "NOT_FOUND",
+    "message": "계좌를 찾을 수 없습니다"
+}
+```
+
+### 감사 로그 및 알람
+
+모든 잔액 변경 시 자동으로 다음이 수행됩니다:
+
+1. **감사 로그 기록**
+   - 액션: `BALANCE_UPDATE`
+   - 리소스: `ACCOUNT`
+   - 변경 전/후 값 기록
+
+2. **자동 알람 발송** (다음 조건)
+   - 잔액 부족 시: `WARNING` 레벨 알람
+   - 시스템 오류 시: `ERROR` 레벨 알람
+   - 정상 처리 시: `INFO` 레벨 비즈니스 이벤트
+
+### 거래내역 조회
+
+송금/결제 완료 후 거래내역 확인:
+
+```http
+GET /accounts/VA12345678/transactions
+Authorization: Bearer {accessToken}
+```
+
+### 에러 처리 권장사항
+
+```javascript
+try {
+    const response = await fetch('/accounts/update-balance', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(requestData)
+    });
+
+    if (response.ok) {
+        const result = await response.json();
+        console.log('잔액 변경 성공:', result);
+        // 성공 처리 로직
+    } else {
+        const error = await response.json();
+        console.error('잔액 변경 실패:', error);
+        
+        switch (error.error) {
+            case 'INSUFFICIENT_BALANCE':
+                // 잔액 부족 처리
+                break;
+            case 'NOT_FOUND':
+                // 계좌 없음 처리
+                break;
+            default:
+                // 기타 오류 처리
+        }
+    }
+} catch (error) {
+    console.error('네트워크 오류:', error);
+    // 네트워크 오류 처리
+}
+```
+
+## 🔔 알람 시스템
+
+### 현재 구현 (Exception 기반 자동 알람)
 ```java
-@RestController
-public class AccountController {
+// GlobalExceptionHandler에서 자동 알람 발송
+@ExceptionHandler(InsufficientBalanceException.class)
+public ResponseEntity<Map<String, Object>> handleInsufficientBalanceException(InsufficientBalanceException e) {
+    // 잔액 부족 경고 알람 자동 발송
+    alarmService.sendSystemAlert("ACCOUNT", "잔액 부족: " + e.getMessage(), e);
+    // ...
+}
+
+@ExceptionHandler(AccountNotFoundException.class)
+public ResponseEntity<Map<String, Object>> handleAccountNotFoundException(AccountNotFoundException e) {
+    // 계좌 없음 경고 알람 자동 발송
+    alarmService.sendSystemAlert("ACCOUNT", "계좌 없음: " + e.getMessage(), e);
+    // ...
+}
+```
+
+### 알람 발송 조건
+- **잔액 부족**: `InsufficientBalanceException` 발생 시
+- **계좌 없음**: `AccountNotFoundException` 발생 시
+- **인증 실패**: `AuthException`, `BadCredentialsException` 발생 시
+- **시스템 에러**: 모든 `Exception` 발생 시
+- **404 에러**: `NoHandlerFoundException` 발생 시
+
+### 비즈니스 이벤트 알람 (수동)
+```java
+// AuditLogService에서 중요 이벤트 알람
+if (isImportantEvent(action)) {
+    alarmService.sendBusinessEvent(action, userId, description);
+}
+```
+
+### SMTP 연동 예시 (추후 구현)
+```java
+@Service
+public class AlarmService {
+    private final EmailService emailService;
     
-    @GetMapping("/account/info")
-    public ResponseEntity<AccountInfo> getAccountInfo(
-        @AuthenticationPrincipal UserPrincipal userPrincipal) {
+    public void sendBusinessEvent(String eventType, String userId, String description) {
+        // Slack 웹훅 전송
+        slackClient.sendMessage(buildSlackMessage(eventType, userId, description));
         
-        // userPrincipal에서 사용자 정보 추출
-        Long userId = userPrincipal.getId();
-        String phoneNumber = userPrincipal.getPhoneNumber();
-        
-        // 비즈니스 로직 구현
-        AccountInfo accountInfo = accountService.getAccountInfo(userId);
-        return ResponseEntity.ok(accountInfo);
+        // 이메일 전송 (중요 이벤트)
+        if (isImportantEvent(eventType)) {
+            emailService.sendAlert("admin@company.com", "중요 이벤트 발생", description);
+        }
     }
 }
 ```
 
-### 예외 처리
-JWT 토큰이 유효하지 않거나 만료된 경우 자동으로 401 Unauthorized 응답을 반환합니다.
+### Slack 연동 예시 (추후 구현)
+```yaml
+# application.yml
+alarm:
+  slack:
+    webhook-url: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+    channel: "#alerts"
+  email:
+    host: smtp.gmail.com
+    port: 587
+    username: your-email@gmail.com
+    password: your-app-password
+```
 
-## 📝 개발 가이드라인
+## 🧪 테스트 진행 방법
 
-### 1. 새로운 API 추가 시
-1. 컨트롤러에 `@AuthenticationPrincipal UserPrincipal userPrincipal` 파라미터 추가
-2. 비즈니스 로직만 구현 (인증/인가는 자동 처리)
-3. API 문서에 JWT 필요 여부 명시
+### 1. 서버 실행
+```bash
+./gradlew bootRun
+```
 
-### 2. 테스트 작성 시
-1. 로그인 API로 JWT 토큰 획득
-2. 테스트할 API 호출 시 Authorization 헤더에 JWT 추가
+### 2. 웹 브라우저 테스트
+1. http://localhost:8081 접속
+2. 회원가입 진행 (010-1234-5678, password123, 홍길동)
+3. 로그인 진행
+4. 메인 페이지에서 "잔액조회" 클릭
+5. 테스트 입금/출금으로 기능 확인
 
-### 3. 에러 처리
-- 401: JWT 토큰이 유효하지 않음
-- 403: 권한 부족
-- 400: 잘못된 요청
-- 500: 서버 내부 오류
+### 3. PowerShell 스크립트 테스트 (권장)
+```powershell
+# PowerShell에서 실행
+.\scripts\test-api.ps1
+```
 
-## 🚨 주의사항
+### 4. curl 테스트 (터미널/CMD)
+```bash
+# 1. 회원가입
+curl -X POST http://localhost:8081/auth/register \
+  -H "Content-Type: application/json" \
+  -d "{\"phoneNumber\":\"010-1234-5678\",\"password\":\"password123\",\"name\":\"홍길동\"}"
 
-1. **JWT 토큰 보안**: 토큰을 안전하게 보관하고, 클라이언트 사이드에서만 사용
-2. **토큰 만료**: Access Token은 1시간, Refresh Token은 30일 후 만료
-3. **HTTPS 사용**: 프로덕션 환경에서는 반드시 HTTPS 사용
-4. **토큰 갱신**: Access Token 만료 시 Refresh Token으로 갱신
+# 2. 로그인 (응답에서 accessToken 추출)
+curl -X POST http://localhost:8081/auth/login \
+  -H "Content-Type: application/json" \
+  -d "{\"phoneNumber\":\"010-1234-5678\",\"password\":\"password123\"}"
 
-## 📞 문의사항
+# 3. 잔액 조회 (TOKEN 부분을 실제 토큰으로 교체)
+curl -X GET http://localhost:8081/accounts/VA12345678/balance \
+  -H "Authorization: Bearer TOKEN"
 
-JWT 인증 관련 문의사항이 있으시면 개발팀에 연락해주세요. 
+# 4. 테스트 입금
+curl -X POST http://localhost:8081/accounts/update-balance \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN" \
+  -d "{\"accountNumber\":\"VA12345678\",\"amount\":50000,\"transactionType\":\"DEPOSIT\",\"description\":\"테스트 입금\"}"
+
+# 5. 테스트 출금
+curl -X POST http://localhost:8081/accounts/update-balance \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN" \
+  -d "{\"accountNumber\":\"VA12345678\",\"amount\":-20000,\"transactionType\":\"WITHDRAW\",\"description\":\"테스트 출금\"}"
+
+# 6. 거래내역 조회
+curl -X GET http://localhost:8081/accounts/VA12345678/transactions \
+  -H "Authorization: Bearer TOKEN"
+```
+
+### 5. 단위 테스트 실행
+```bash
+./gradlew test
+```
+
+## 📁 프로젝트 구조
+
+```
+src/main/java/fintech2/easypay/
+├── auth/                    # 인증/회원가입
+│   ├── controller/         # AuthController
+│   ├── service/           # AuthService, JwtService, LoginHistoryService
+│   ├── entity/            # User, LoginHistory
+│   ├── repository/        # UserRepository, LoginHistoryRepository
+│   └── dto/               # LoginRequest, RegisterRequest
+├── account/                # 계좌/잔액 관리
+│   ├── controller/        # AccountController
+│   ├── service/          # AccountService
+│   ├── entity/           # AccountBalance, TransactionHistory
+│   └── repository/       # AccountBalanceRepository, TransactionHistoryRepository
+├── audit/                 # 감사로그/알람
+│   ├── service/          # AuditLogService, AlarmService
+│   ├── entity/           # AuditLog
+│   └── repository/       # AuditLogRepository
+├── common/               # 공통
+│   ├── exception/        # GlobalExceptionHandler, AuthException
+│   └── AuditResult.java  # Enum
+└── config/               # 설정
+    └── SecurityConfig.java
+
+src/main/resources/static/  # 프론트엔드
+├── index.html             # 로그인 페이지 (기본)
+├── register.html          # 회원가입 페이지
+├── main.html             # 메인 페이지 (송금/결제/잔액 버튼)
+├── balance.html          # 잔액조회 페이지
+├── js/
+│   ├── auth.js           # 인증 관련 JS
+│   ├── main.js           # 메인 페이지 JS
+│   └── balance.js        # 잔액조회 JS
+└── css/
+    └── common.css        # 공통 스타일
+```
+
+## 🔐 보안 고려사항
+
+- JWT 토큰 기반 인증
+- BCrypt 비밀번호 암호화
+- 계정 잠금 (5회 실패 시 30분)
+- 로그인 이력 추적
+- 모든 중요 액션 감사로그 기록
+- CORS 설정
+- XSS/CSRF 방어
+
+## 📞 문의
+
+- 개발자: [개발자명]
+- 이메일: [개발자 이메일]
+- 프로젝트: EasyPay 금융 서비스 API
+
+---
+
+**주의**: 이 프로젝트는 개발/테스트 목적입니다. 운영 환경에서는 추가 보안 강화가 필요합니다. 

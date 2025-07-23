@@ -21,9 +21,8 @@ public class TransactionHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id")
-    private VirtualAccount account;
+    @Column(name = "account_number", nullable = false)
+    private String accountNumber; // 계좌번호 직접 저장
 
     @Enumerated(EnumType.STRING)
     private TransactionType transactionType;

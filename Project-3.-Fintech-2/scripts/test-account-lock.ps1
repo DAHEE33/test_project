@@ -1,43 +1,45 @@
-# 계정 잠금 기능 테스트 스크립트
+# 계정 잠금 테스트 스크립트
+# PowerShell에서 실행: .\test-account-lock.ps1
+
 $baseUrl = "http://localhost:8081"
 
-Write-Host "=== 계정 잠금 기능 테스트 ===" -ForegroundColor Green
+Write-Host "=== 계정 잠금 테스트 ===" -ForegroundColor Green
 
-# 1. 테스트용 사용자 등록
-Write-Host "`n1. 테스트용 사용자 등록..." -ForegroundColor Yellow
+# 1. 회원가입 (새 계정)
+Write-Host "`n1. 새 계정 회원가입..." -ForegroundColor Yellow
 $registerBody = @{
-    phoneNumber = "01012345678"
-    password = "TestPass123"
+    phoneNumber = "010-9999-8888"
+    password = "password123"
+    name = "테스트사용자"
 } | ConvertTo-Json
 
 try {
-    $registerResponse = Invoke-RestMethod -Uri "$baseUrl/auth/register" -Method POST -Body $registerBody -ContentType "application/json"
-    Write-Host "✅ 사용자 등록 성공: $($registerResponse.message)" -ForegroundColor Green
+    $response = Invoke-RestMethod -Uri "$baseUrl/auth/register" -Method POST -Body $registerBody -ContentType "application/json"
+    Write-Host "회원가입 성공!" -ForegroundColor Green
+    Write-Host "계좌번호: $($response.accountNumber)" -ForegroundColor Cyan
 } catch {
-    Write-Host "❌ 사용자 등록 실패: $($_.Exception.Message)" -ForegroundColor Red
-    exit
+    Write-Host "회원가입 실패 또는 이미 존재하는 계정" -ForegroundColor Red
+    Write-Host $_.Exception.Message
 }
 
-# 2. 5회 연속 로그인 실패 시뮬레이션
-Write-Host "`n2. 5회 연속 로그인 실패 시뮬레이션..." -ForegroundColor Yellow
+# 2. 5회 연속 로그인 실패로 계정 잠금 테스트
+Write-Host "`n2. 5회 연속 로그인 실패로 계정 잠금 테스트..." -ForegroundColor Yellow
 
 for ($i = 1; $i -le 5; $i++) {
-    Write-Host "`n--- $i번째 로그인 실패 시도 ---" -ForegroundColor Cyan
+    Write-Host "  $i번째 로그인 시도 (잘못된 비밀번호)..." -ForegroundColor Cyan
     
     $loginBody = @{
-        phoneNumber = "01012345678"
-        password = "WrongPassword$i"
+        phoneNumber = "010-9999-8888"
+        password = "wrongpassword"
     } | ConvertTo-Json
-    
+
     try {
-        $loginResponse = Invoke-RestMethod -Uri "$baseUrl/auth/login" -Method POST -Body $loginBody -ContentType "application/json"
-        Write-Host "❌ 예상과 다름: 로그인 성공" -ForegroundColor Red
+        $response = Invoke-RestMethod -Uri "$baseUrl/auth/login" -Method POST -Body $loginBody -ContentType "application/json"
+        Write-Host "    예상과 다름: 로그인 성공" -ForegroundColor Red
     } catch {
-        $errorMessage = $_.Exception.Message
-        Write-Host "✅ 로그인 실패 (예상됨): $errorMessage" -ForegroundColor Green
-        
+        Write-Host "    로그인 실패 (예상됨)" -ForegroundColor Yellow
         if ($i -eq 5) {
-            Write-Host "`n🎯 5회 연속 실패 완료! 계정이 잠겨야 합니다." -ForegroundColor Magenta
+            Write-Host "    ✅ 5회 실패로 계정이 잠겼습니다!" -ForegroundColor Green
         }
     }
     
@@ -47,26 +49,27 @@ for ($i = 1; $i -le 5; $i++) {
 # 3. 잠긴 계정으로 로그인 시도
 Write-Host "`n3. 잠긴 계정으로 로그인 시도..." -ForegroundColor Yellow
 
-$correctLoginBody = @{
-    phoneNumber = "01012345678"
-    password = "TestPass123"
+$loginBody = @{
+    phoneNumber = "010-9999-8888"
+    password = "password123"
 } | ConvertTo-Json
 
 try {
-    $loginResponse = Invoke-RestMethod -Uri "$baseUrl/auth/login" -Method POST -Body $correctLoginBody -ContentType "application/json"
-    Write-Host "❌ 계정 잠금이 작동하지 않음: 로그인 성공" -ForegroundColor Red
+    $response = Invoke-RestMethod -Uri "$baseUrl/auth/login" -Method POST -Body $loginBody -ContentType "application/json"
+    Write-Host "❌ 예상과 다름: 잠긴 계정으로 로그인 성공" -ForegroundColor Red
 } catch {
-    $errorMessage = $_.Exception.Message
-    Write-Host "✅ 계정 잠금 작동: $errorMessage" -ForegroundColor Green
+    Write-Host "✅ 예상됨: 잠긴 계정으로 로그인 실패" -ForegroundColor Green
+    Write-Host "   에러 메시지: $($_.Exception.Message)" -ForegroundColor Cyan
 }
 
-# 4. H2 콘솔에서 사용자 상태 확인 안내
-Write-Host "`n4. H2 콘솔에서 사용자 상태 확인:" -ForegroundColor Yellow
-Write-Host "   URL: http://localhost:8081/h2-console" -ForegroundColor Cyan
-Write-Host "   JDBC URL: jdbc:h2:mem:testdb" -ForegroundColor Cyan
-Write-Host "   Username: sa" -ForegroundColor Cyan
-Write-Host "   Password: (비워두기)" -ForegroundColor Cyan
-Write-Host "`n   SQL 쿼리:" -ForegroundColor Cyan
-Write-Host "   SELECT id, phone_number, login_fail_count, is_locked, lock_reason, lock_expires_at FROM users WHERE phone_number = '01012345678';" -ForegroundColor White
+# 4. 30분 대기 안내
+Write-Host "`n4. 계정 잠금 해제 테스트" -ForegroundColor Yellow
+Write-Host "   계정이 30분간 잠겨있습니다." -ForegroundColor Cyan
+Write-Host "   실제 테스트를 위해서는 30분 후에 다시 로그인을 시도해보세요." -ForegroundColor Cyan
+Write-Host "   또는 서버 로그에서 잠금 해제 시간을 확인하세요." -ForegroundColor Cyan
 
-Write-Host "`n=== 테스트 완료 ===" -ForegroundColor Green 
+Write-Host "`n=== 테스트 완료 ===" -ForegroundColor Green
+Write-Host "서버 로그에서 다음을 확인하세요:" -ForegroundColor Yellow
+Write-Host "- [ACCOUNT_LOCK] 알람 메시지" -ForegroundColor Cyan
+Write-Host "- [LOGIN_FAILURE] 알람 메시지" -ForegroundColor Cyan
+Write-Host "- 계정 잠금 해제 시간" -ForegroundColor Cyan 

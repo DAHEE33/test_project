@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @Builder
 public class AccountBalance {
     @Id
-    private Long accountId;
+    private String accountNumber; // 계좌번호를 ID로 사용
 
     @Column(precision = 15, scale = 2)
     @Builder.Default
