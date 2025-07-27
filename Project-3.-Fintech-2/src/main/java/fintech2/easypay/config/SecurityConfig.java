@@ -42,9 +42,11 @@ public class SecurityConfig {
                 .requestMatchers("/js/**").permitAll()
                 .requestMatchers("/css/**").permitAll()
                 .requestMatchers("/favicon.ico").permitAll()
-                .requestMatchers("/", "/index.html", "/register.html", "/main.html", "/balance.html").permitAll()
+                .requestMatchers("/", "/index.html", "/register.html", "/main.html", "/balance.html", "/alarm.html").permitAll()
                 // 계좌 관련 API (JWT 인증 필요)
                 .requestMatchers("/accounts/**").authenticated()
+                // 알림 관련 API (JWT 인증 필요)
+                .requestMatchers("/api/alarms/**").authenticated()
                 // 나머지 모든 요청은 인증 필요
                 .anyRequest().authenticated()
             )
