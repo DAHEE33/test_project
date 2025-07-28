@@ -7,6 +7,7 @@ import fintech2.easypay.auth.repository.UserRepository;
 import fintech2.easypay.account.entity.AccountBalance;
 import fintech2.easypay.account.repository.AccountBalanceRepository;
 import fintech2.easypay.audit.service.AuditLogService;
+import fintech2.easypay.audit.service.AlarmService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -28,12 +31,14 @@ public class AuthService {
     private final JwtService jwtService;
     private final LoginHistoryService loginHistoryService;
     private final AuditLogService auditLogService;
+    private final AlarmService alarmService;
 
     private static final Pattern PHONE_PATTERN = Pattern.compile("^010-\\d{4}-\\d{4}$");
 
     @Transactional
     public ResponseEntity<?> register(RegisterRequest req) {
         try {
+            // 유효성 검사
             // 1. 휴대폰 번호 중복 체크
             if (userRepository.findByPhoneNumber(req.getPhoneNumber()).isPresent()) {
                 auditLogService.logWarning(null, "REGISTER_ATTEMPT", "USER", req.getPhoneNumber(), "중복된 휴대폰 번호로 가입 시도");
@@ -106,6 +111,10 @@ public class AuthService {
             if (user.isAccountLocked()) {
                 loginHistoryService.recordAccountLocked(req.getPhoneNumber(), user.getId(), user.getLockReason(), ipAddress, userAgent);
                 auditLogService.logWarning(user.getId(), "LOGIN_BLOCKED", "USER", user.getId().toString(), "계정 잠금으로 로그인 차단");
+                
+                // 계정 잠금 알림 발송
+                alarmService.sendAccountLockAlert(req.getPhoneNumber(), user.getId().toString(), user.getLockReason());
+                
                 return ResponseEntity.status(HttpStatus.LOCKED)
                         .body(Map.of("error", "ACCOUNT_LOCKED", "message", "계정이 잠겨있습니다"));
             }
@@ -122,6 +131,9 @@ public class AuthService {
                 auditLogService.logWarning(user.getId(), "LOGIN_FAIL", "USER", user.getId().toString(), 
                         "로그인 실패 - 실패 횟수: " + user.getLoginFailCount());
                 
+                // 로그인 실패 알림 발송
+                alarmService.sendLoginFailureAlert(req.getPhoneNumber(), user.getId().toString(), "잘못된 비밀번호");
+                
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "INVALID_CREDENTIALS", "message", "휴대폰 번호 또는 비밀번호가 올바르지 않습니다"));
             }
@@ -135,6 +147,11 @@ public class AuthService {
             // 로그인 성공 이력 기록
             loginHistoryService.recordLoginSuccess(req.getPhoneNumber(), user.getId(), ipAddress, userAgent);
             auditLogService.logSuccess(user.getId(), "USER_LOGIN", "USER", user.getId().toString(), null, "로그인 성공");
+            
+            // 로그인 성공 알림 생성
+            String loginTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH시 mm분"));
+            alarmService.sendBusinessEvent("LOGIN_SUCCESS", user.getId().toString(), 
+                String.format("로그인 성공 - %s에 로그인되었습니다", loginTime));
             
             Map<String, Object> resp = new HashMap<>();
             resp.put("accessToken", jwt);

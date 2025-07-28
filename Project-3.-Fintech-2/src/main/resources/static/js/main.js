@@ -86,6 +86,13 @@ function goToBalance() {
 
 // 알람 페이지로 이동
 function goToAlarm() {
+    // 알림을 읽음 처리
+    localStorage.setItem('alarmsReadAt', new Date().toISOString());
+    
+    // 배지 숨기기
+    const badge = document.getElementById('notificationBadge');
+    badge.style.display = 'none';
+    
     window.location.href = '/alarm.html';
 }
 

@@ -36,51 +36,67 @@ public class BalanceService {
     private final AlarmService alarmService;
 
     /**
-     * 잔액 증가 (입금)
-     * @param accountNumber 계좌번호
-     * @param amount 입금 금액 (양수)
-     * @param transactionType 거래 유형
-     * @param description 거래 설명
-     * @param referenceId 참조 ID (송금ID, 결제ID 등)
-     * @return 잔액 변경 결과
+     * 잔액 증가 (입금) - 사용자 ID 포함
      */
     @Transactional(
-        isolation = Isolation.SERIALIZABLE,  // 최고 격리 수준으로 동시성 제어
-        propagation = Propagation.REQUIRED,  // 기존 트랜잭션 참여 또는 새로 생성
-        timeout = 30,                        // 30초 타임아웃
-        rollbackFor = {Exception.class}      // 모든 예외 시 롤백
+        isolation = Isolation.SERIALIZABLE,
+        propagation = Propagation.REQUIRED,
+        timeout = 30,
+        rollbackFor = {Exception.class}
     )
     public BalanceChangeResult increase(String accountNumber, BigDecimal amount, 
-                                      TransactionType transactionType, String description, String referenceId) {
+                                      TransactionType transactionType, String description, String referenceId, String userId) {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("입금 금액은 0보다 커야 합니다: " + amount);
         }
         
-        return changeBalance(accountNumber, amount, transactionType, description, referenceId);
+        return changeBalance(accountNumber, amount, transactionType, description, referenceId, userId);
     }
 
     /**
-     * 잔액 감소 (출금)
-     * @param accountNumber 계좌번호
-     * @param amount 출금 금액 (양수)
-     * @param transactionType 거래 유형
-     * @param description 거래 설명
-     * @param referenceId 참조 ID (송금ID, 결제ID 등)
-     * @return 잔액 변경 결과
+     * 잔액 감소 (출금) - 사용자 ID 포함
      */
     @Transactional(
-        isolation = Isolation.SERIALIZABLE,  // 최고 격리 수준으로 동시성 제어
-        propagation = Propagation.REQUIRED,  // 기존 트랜잭션 참여 또는 새로 생성
-        timeout = 30,                        // 30초 타임아웃
-        rollbackFor = {Exception.class}      // 모든 예외 시 롤백
+        isolation = Isolation.SERIALIZABLE,
+        propagation = Propagation.REQUIRED,
+        timeout = 30,
+        rollbackFor = {Exception.class}
     )
     public BalanceChangeResult decrease(String accountNumber, BigDecimal amount, 
-                                      TransactionType transactionType, String description, String referenceId) {
+                                      TransactionType transactionType, String description, String referenceId, String userId) {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("출금 금액은 0보다 커야 합니다: " + amount);
         }
         
-        return changeBalance(accountNumber, amount.negate(), transactionType, description, referenceId);
+        return changeBalance(accountNumber, amount.negate(), transactionType, description, referenceId, userId);
+    }
+
+    /**
+     * 잔액 증가 (입금) - 기존 호환성용
+     */
+    @Transactional(
+        isolation = Isolation.SERIALIZABLE,
+        propagation = Propagation.REQUIRED,
+        timeout = 30,
+        rollbackFor = {Exception.class}
+    )
+    public BalanceChangeResult increase(String accountNumber, BigDecimal amount, 
+                                      TransactionType transactionType, String description, String referenceId) {
+        return increase(accountNumber, amount, transactionType, description, referenceId, "USER");
+    }
+
+    /**
+     * 잔액 감소 (출금) - 기존 호환성용
+     */
+    @Transactional(
+        isolation = Isolation.SERIALIZABLE,
+        propagation = Propagation.REQUIRED,
+        timeout = 30,
+        rollbackFor = {Exception.class}
+    )
+    public BalanceChangeResult decrease(String accountNumber, BigDecimal amount, 
+                                      TransactionType transactionType, String description, String referenceId) {
+        return decrease(accountNumber, amount, transactionType, description, referenceId, "USER");
     }
 
     /**
@@ -88,7 +104,7 @@ public class BalanceService {
      * 동시성 제어, 검증, 이력 기록을 모두 처리
      */
     private BalanceChangeResult changeBalance(String accountNumber, BigDecimal amount, 
-                                            TransactionType transactionType, String description, String referenceId) {
+                                            TransactionType transactionType, String description, String referenceId, String userId) {
         long startTime = System.currentTimeMillis();
         
         try {
@@ -112,7 +128,7 @@ public class BalanceService {
                 
                 // 잔액 부족 알람 발송 (비동기로 처리)
                 alarmService.sendInsufficientBalanceAlert(
-                    accountNumber, "USER", balanceBefore.toString(), amount.abs().toString());
+                    accountNumber, userId, balanceBefore.toString(), amount.abs().toString());
                 
                 throw new InsufficientBalanceException(
                     "잔액이 부족합니다. 현재 잔액: " + balanceBefore + "원, 요청 금액: " + amount.abs() + "원");
@@ -151,7 +167,11 @@ public class BalanceService {
             // 7. 알람 발송 (트랜잭션 외부에서 비동기 처리)
             String changeType = amount.compareTo(BigDecimal.ZERO) > 0 ? "입금" : "출금";
             alarmService.sendBalanceChangeAlert(
-                accountNumber, "USER", changeType, amount.abs().toString(), balanceAfter.toString());
+                accountNumber, userId, changeType, amount.abs().toString(), balanceAfter.toString());
+
+            // 8. 이상거래 감지
+            alarmService.detectSuspiciousTransaction(
+                accountNumber, userId, amount.abs(), transactionType.name());
 
             return result;
 

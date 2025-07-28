@@ -64,7 +64,7 @@ public class AccountService {
      * @deprecated 새로운 비즈니스 로직에서는 BalanceService를 직접 사용하세요
      */
     @Transactional
-    public ResponseEntity<?> updateBalance(String accountNumber, BigDecimal amount, String transactionTypeStr, String description) {
+    public ResponseEntity<?> updateBalance(String accountNumber, BigDecimal amount, String transactionTypeStr, String description, String userId) {
         try {
             // TransactionType enum으로 변환
             TransactionType transactionType;
@@ -81,10 +81,10 @@ public class AccountService {
 
             if (amount.compareTo(BigDecimal.ZERO) > 0) {
                 // 입금
-                result = balanceService.increase(accountNumber, amount, transactionType, description, referenceId);
+                result = balanceService.increase(accountNumber, amount, transactionType, description, referenceId, userId);
             } else {
                 // 출금
-                result = balanceService.decrease(accountNumber, amount.abs(), transactionType, description, referenceId);
+                result = balanceService.decrease(accountNumber, amount.abs(), transactionType, description, referenceId, userId);
             }
 
             // 응답 생성

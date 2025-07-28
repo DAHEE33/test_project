@@ -80,6 +80,161 @@
             color: white;
             border-color: #007bff;
         }
+        
+        /* 거래내역 스타일 */
+        .transaction-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #28a745;
+        }
+        
+        .transaction-item.withdrawal {
+            border-left-color: #dc3545;
+        }
+        
+        .transaction-item.deposit {
+            border-left-color: #28a745;
+        }
+        
+        .transaction-item.transfer {
+            border-left-color: #007bff;
+        }
+        
+        .transaction-item.payment {
+            border-left-color: #ffc107;
+        }
+        
+        .transaction-item.refund {
+            border-left-color: #17a2b8;
+        }
+        
+        .transaction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .transaction-type {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .transaction-amount {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .transaction-amount.positive {
+            color: #28a745;
+        }
+        
+        .transaction-amount.negative {
+            color: #dc3545;
+        }
+        
+        .transaction-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .transaction-description {
+            color: #555;
+            line-height: 1.4;
+        }
+        
+        .tab-container {
+            margin-bottom: 20px;
+        }
+        
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: #f8f9fa;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        .tab-btn.active {
+            background: #007bff;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* 잔액 표시 스타일 */
+        .balance-display {
+            margin-bottom: 20px;
+        }
+        
+        .balance-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .balance-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .balance-amount {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .account-info {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        /* 페이징 스타일 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            gap: 15px;
+        }
+        
+        .pagination-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .pagination-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .page-info {
+            font-size: 14px;
+            color: #666;
+        }
     </style>
     <script defer src="/js/alarm.js"></script>
 </head>
@@ -91,17 +246,48 @@
         </div>
 
         <div class="alarm-container">
-            <h2>🔔 알람 내역</h2>
+            <h2>🔔 알림 및 거래내역</h2>
             
-            <div class="alarm-filter">
-                <button class="filter-btn active" onclick="filterAlarms('all')">전체</button>
-                <button class="filter-btn" onclick="filterAlarms('balance')">잔액</button>
-                <button class="filter-btn" onclick="filterAlarms('login')">로그인</button>
-                <button class="filter-btn" onclick="filterAlarms('system')">시스템</button>
+            <div class="tab-container">
+                <button class="tab-btn active" onclick="showTab('alarms')">알림</button>
+                <button class="tab-btn" onclick="showTab('transactions')">거래내역</button>
             </div>
 
-            <div id="alarmList">
-                <div class="no-alarms">알람을 불러오는 중...</div>
+            <!-- 알림 탭 -->
+            <div id="alarms-tab" class="tab-content active">
+                <!-- 현재 잔액 표시 -->
+                <div class="balance-display">
+                    <div class="balance-card">
+                        <h3>💰 현재 잔액</h3>
+                        <div class="balance-amount" id="currentBalance">로딩 중...</div>
+                        <div class="account-info" id="accountInfo">계좌번호: -</div>
+                    </div>
+                </div>
+                
+                <div class="alarm-filter">
+                    <button class="filter-btn active" onclick="filterAlarms('all')">전체</button>
+                    <button class="filter-btn" onclick="filterAlarms('balance')">잔액</button>
+                    <button class="filter-btn" onclick="filterAlarms('login')">로그인</button>
+                    <button class="filter-btn" onclick="filterAlarms('system')">시스템</button>
+                </div>
+
+                <div id="alarmList">
+                    <div class="no-alarms">알람을 불러오는 중...</div>
+                </div>
+                
+                <!-- 페이징 처리 -->
+                <div class="pagination" id="alarmPagination" style="display: none;">
+                    <button class="pagination-btn" id="prevPage" onclick="changePage(-1)">이전</button>
+                    <span class="page-info" id="pageInfo">1 / 1</span>
+                    <button class="pagination-btn" id="nextPage" onclick="changePage(1)">다음</button>
+                </div>
+            </div>
+
+            <!-- 거래내역 탭 -->
+            <div id="transactions-tab" class="tab-content">
+                <div id="transactionList">
+                    <div class="no-alarms">거래내역을 불러오는 중...</div>
+                </div>
             </div>
         </div>
 

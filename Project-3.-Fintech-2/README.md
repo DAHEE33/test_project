@@ -351,6 +351,7 @@ public class BalanceService {
 
 ### 송금/결제 담당자 사용법
 
+#### 송금 서비스 예시
 ```java
 @Service
 public class TransferService {
@@ -376,6 +377,45 @@ public class TransferService {
 }
 ```
 
+#### 결제 서비스 예시
+```java
+@Service
+public class PaymentService {
+    
+    private final BalanceService balanceService;
+    
+    // 결제 처리
+    public PaymentResult processPayment(String accountNumber, BigDecimal amount, String merchantId) {
+        // 1. 잔액 확인
+        if (!balanceService.hasSufficientBalance(accountNumber, amount)) {
+            throw new InsufficientBalanceException("결제 금액이 부족합니다");
+        }
+        
+        // 2. 결제 처리 및 잔액 차감
+        BalanceChangeResult result = balanceService.decrease(
+            accountNumber,
+            amount,
+            TransactionType.PAYMENT,
+            "상점 결제: " + merchantId,
+            generatePaymentId()
+        );
+        
+        return new PaymentResult(result);
+    }
+    
+    // 결제 취소
+    public void cancelPayment(String accountNumber, BigDecimal amount, String paymentId) {
+        balanceService.increase(
+            accountNumber,
+            amount,
+            TransactionType.REFUND,
+            "결제 취소: " + paymentId,
+            generateRefundId()
+        );
+    }
+}
+```
+
 ### 동시성 제어 강화
 
 ```java
@@ -388,12 +428,37 @@ public interface AccountBalanceRepository extends JpaRepository<AccountBalance, 
 }
 ```
 
+### BalanceService 활용 범위
+
+#### 지원하는 거래 유형
+- **송금**: `TransactionType.TRANSFER` - 계좌 간 이체
+- **결제**: `TransactionType.PAYMENT` - 상점 결제
+- **환불**: `TransactionType.REFUND` - 결제 취소/환불
+- **입금**: `TransactionType.DEPOSIT` - 외부 입금
+- **출금**: `TransactionType.WITHDRAWAL` - 현금 출금
+
+#### 제공하는 메서드들
+```java
+// 잔액 변경
+balanceService.increase(accountNumber, amount, transactionType, description, referenceId);
+balanceService.decrease(accountNumber, amount, transactionType, description, referenceId);
+
+// 잔액 조회
+BigDecimal balance = balanceService.getBalance(accountNumber);
+BigDecimal balanceWithLock = balanceService.getBalanceWithLock(accountNumber);
+
+// 잔액 확인
+boolean hasSufficient = balanceService.hasSufficientBalance(accountNumber, requiredAmount);
+```
+
 ### 개선 효과
 
 1. **동시성 제어 강화**: Pessimistic Lock으로 Race Condition 방지
 2. **책임 분리**: 잔액 변경의 중앙 제어
 3. **장애 복구 강화**: 중앙화된 로깅과 참조 ID
 4. **확장성 향상**: 새로운 비즈니스 로직 추가 용이
+5. **재사용성**: 송금, 결제, 환불 등 모든 금융 거래에서 공통 사용
+6. **안전성**: 모든 거래가 원자적으로 처리되고 자동 감사 로그 기록
 
 ## 🔔 알람 시스템
 
@@ -591,6 +656,7 @@ public ResponseEntity<WithdrawResponse> withdraw(
 
 ### BalanceService 사용법 (송금/결제 담당자)
 
+#### 기본 사용법
 ```java
 @Service
 public class TransferService {
@@ -611,6 +677,57 @@ public class TransferService {
         balanceService.increase(toAccount, amount, TransactionType.TRANSFER, "송금 입금", transferId);
     }
 }
+```
+
+#### 결제 서비스에서 활용
+```java
+@Service
+public class PaymentService {
+    
+    private final BalanceService balanceService;
+    
+    // 결제 처리
+    public PaymentResult processPayment(String accountNumber, BigDecimal amount, String merchantId) {
+        // 1. 잔액 확인
+        if (!balanceService.hasSufficientBalance(accountNumber, amount)) {
+            throw new InsufficientBalanceException("결제 금액이 부족합니다");
+        }
+        
+        // 2. 결제 처리 및 잔액 차감
+        BalanceChangeResult result = balanceService.decrease(
+            accountNumber,
+            amount,
+            TransactionType.PAYMENT,
+            "상점 결제: " + merchantId,
+            generatePaymentId()
+        );
+        
+        return new PaymentResult(result);
+    }
+    
+    // 결제 취소
+    public void cancelPayment(String accountNumber, BigDecimal amount, String paymentId) {
+        balanceService.increase(
+            accountNumber,
+            amount,
+            TransactionType.REFUND,
+            "결제 취소: " + paymentId,
+            generateRefundId()
+        );
+    }
+}
+```
+
+#### 잔액 조회 방법들
+```java
+// 일반 잔액 조회 (읽기 전용)
+BigDecimal balance = balanceService.getBalance(accountNumber);
+
+// 락이 적용된 잔액 조회 (변경 전 확인용)
+BigDecimal balanceWithLock = balanceService.getBalanceWithLock(accountNumber);
+
+// 잔액 충분 여부 확인
+boolean canPay = balanceService.hasSufficientBalance(accountNumber, paymentAmount);
 ```
 
 ### 알림 시스템 사용법

@@ -4,17 +4,86 @@
     <meta charset="UTF-8">
     <title>EasyPay - 메인</title>
     <link rel="stylesheet" href="/css/common.css">
+    <style>
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 0 0 20px 20px;
+            margin-bottom: 30px;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .notification-icon {
+            position: relative;
+            cursor: pointer;
+            font-size: 24px;
+            padding: 8px;
+            border-radius: 50%;
+            transition: background-color 0.3s;
+        }
+        
+        .notification-icon:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background-color: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            min-width: 20px;
+        }
+        
+        .btn-small {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-small:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
     <script defer src="/js/main.js"></script>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏦 EasyPay</h1>
-            <div class="notification-icon" onclick="goToAlarm()">
-                🔔
-                <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            <div class="header-left">
+                <h1>🏦 EasyPay</h1>
             </div>
-            <div class="header-actions">
+            <div class="header-right">
+                <div class="notification-icon" onclick="goToAlarm()">
+                    🔔
+                    <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+                </div>
                 <button class="btn btn-small" onclick="logout()">로그아웃</button>
             </div>
         </div>
